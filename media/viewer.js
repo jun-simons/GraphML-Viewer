@@ -37,14 +37,16 @@
     });
 
     const edges = Array.from(doc.getElementsByTagName('edge')).map(e => {
-      const source = e.getAttribute('source') || '';
-      const target = e.getAttribute('target') || '';
-      const data = {};
-      e.querySelectorAll(':scope > data').forEach(d => {
-        const key = keyMap[d.getAttribute('key')] || d.getAttribute('key');
-        data[key] = d.textContent || '';
-      });
-      return { source, target, data };
+        const source = e.getAttribute('source') || '';
+        const target = e.getAttribute('target') || '';
+        const dirAttr = e.getAttribute('directed');              // optional per edge
+        const isDirected = (dirAttr != null) ? (dirAttr === 'true') : directed;
+        const data = {};
+        e.querySelectorAll(':scope > data').forEach(d => {
+            const key = keyMap[d.getAttribute('key')] || d.getAttribute('key');
+            data[key] = d.textContent || '';
+        });
+        return { source, target, _arrow: (isDirected ? 'triangle' : 'none'), data };
     });
 
     return { nodes, edges, directed };
@@ -60,8 +62,9 @@
 
   function render(graph) {
     const elems = []
-      .concat(graph.nodes.map(n => ({ data: { id: n.id, label: n.data.label || n.id, ...n.data } })))
-      .concat(graph.edges.map(e => ({ data: { source: e.source, target: e.target, ...e.data } })));
+    .concat(graph.nodes.map(n => ({ data: { id: n.id, label: n.data.label || n.id, ...n.data } })))
+    .concat(graph.edges.map(e => ({ data: { source: e.source, target: e.target, _arrow: e._arrow, ...e.data } })));
+
 
     if (!cy) {
       cy = cytoscape({
@@ -84,7 +87,7 @@
             'curve-style': 'bezier',
             'line-color': '#bbb',
             'target-arrow-color': '#bbb',
-            'target-arrow-shape': (graph.directed ? 'triangle' : 'none')
+            'target-arrow-shape': 'data(_arrow)' // update based on key
           }},
           { selector: 'node:selected', style: { 'border-width': 3, 'border-color': '#0a84ff' } }
         ]
