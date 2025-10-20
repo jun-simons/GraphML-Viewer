@@ -60,6 +60,16 @@
     cy.fit();
   }
 
+  function showError(msg) {
+    const s = document.getElementById('status');
+    if (s) { s.textContent = String(msg); s.style.display = 'block'; }
+    }
+    function clearError() {
+    const s = document.getElementById('status');
+    if (s) { s.textContent = ''; s.style.display = 'none'; }
+    }
+
+
   function render(graph) {
     const elems = []
     .concat(graph.nodes.map(n => ({ data: { id: n.id, label: n.data.label || n.id, ...n.data } })))
@@ -134,15 +144,27 @@
   });
 
   // Initial render
-  try { render(parseGraphML(currentXml)); }
-  catch (e) { document.getElementById('cy').textContent = 'Parse error: ' + (e && e.message || e); }
+try {
+  render(parseGraphML(currentXml));
+  clearError();               // <—
+} catch (e) {
+  // If a graph exists, clear it but DO NOT touch #cy innerHTML
+  if (cy) cy.elements().remove();
+  showError('Parse error: ' + (e && e.message || e));
+}
 
-  // Live reload
-  window.addEventListener('message', (event) => {
-    if (event.data && event.data.type === 'reload') {
-      currentXml = event.data.xml;
-      try { render(parseGraphML(currentXml)); }
-      catch (e) { document.getElementById('cy').textContent = 'Parse error: ' + (e && e.message || e); }
+// Live reload
+window.addEventListener('message', (event) => {
+  if (event.data && event.data.type === 'reload') {
+    currentXml = event.data.xml;
+    try {
+      render(parseGraphML(currentXml));
+      clearError();           // <—
+    } catch (e) {
+      if (cy) cy.elements().remove();
+      showError('Parse error: ' + (e && e.message || e));
     }
-  });
+  }
+});
+
 })();

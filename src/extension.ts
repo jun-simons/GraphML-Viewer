@@ -126,6 +126,7 @@ function getHtml(webview: vscode.Webview, ctx: vscode.ExtensionContext, xml: str
     <button id="png">Export PNG</button>
     <span class="badges" id="counts"></span>
   </div>
+  <div id="status" style="display:none; padding:.5rem .75rem; color:#b00020;"></div>
   <div id="cy"></div>
   <div class="hint" id="hint" style="display:none;">Click a node to reveal in source</div>
 
