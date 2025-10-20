@@ -1,0 +1,72 @@
+{
+  "name": "graphml-viewer",
+  "displayName": "graphml-viewer",
+  "description": "Preview and inspect GraphML files",
+  "version": "0.0.1",
+  "engines": {
+    "vscode": "^1.96.0"
+  },
+  "categories": [
+    "Other"
+  ],
+  "activationEvents": [
+    "onCommand:graphmlViewer.open"
+  ],
+  "contributes": {
+    "commands": [
+      {
+        "command": "graphmlViewer.open",
+        "title": "GraphML: Open Preview"
+      }
+    ],
+    "menus": {
+      "commandPalette": [
+        {
+          "command": "graphmlViewer.open",
+          "when": "editorLangId == xml || resourceExtname == .graphml",
+          "group": "navigation"
+        }
+      ],
+      "editor/title": [
+        {
+          "command": "graphmlViewer.open",
+          "when": "resourceExtname == .graphml",
+          "group": "navigation@2"
+        }
+      ],
+      "explorer/context": [
+        {
+          "command": "graphmlViewer.open",
+          "when": "resourceExtname == .graphml",
+          "group": "navigation@2"
+        }
+      ]
+    }
+  },
+  "main": "./dist/extension.js",
+  "scripts": {
+    "vscode:prepublish": "npm run package",
+    "compile": "webpack",
+    "watch": "webpack --watch",
+    "package": "webpack --mode production --devtool hidden-source-map",
+    "compile-tests": "tsc -p . --outDir out",
+    "watch-tests": "tsc -p . -w --outDir out",
+    "pretest": "npm run compile-tests && npm run compile && npm run lint",
+    "lint": "eslint src",
+    "test": "vscode-test"
+  },
+  "devDependencies": {
+    "@types/vscode": "^1.105.0",
+    "@types/mocha": "^10.0.10",
+    "@types/node": "20.x",
+    "@typescript-eslint/eslint-plugin": "^8.31.1",
+    "@typescript-eslint/parser": "^8.31.1",
+    "eslint": "^9.25.1",
+    "typescript": "^5.8.3",
+    "ts-loader": "^9.5.2",
+    "webpack": "^5.99.7",
+    "webpack-cli": "^6.0.1",
+    "@vscode/test-cli": "^0.0.10",
+    "@vscode/test-electron": "^2.5.2"
+  }
+}
