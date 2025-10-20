@@ -136,5 +136,5 @@ function getHtml(webview: vscode.Webview, ctx: vscode.ExtensionContext, xml: str
 </html>`;
 }
 
-
 export function deactivate() {}
+
