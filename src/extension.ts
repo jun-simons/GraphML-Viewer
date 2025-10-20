@@ -1,52 +1,52 @@
 import * as vscode from 'vscode';
 
 export function activate(context: vscode.ExtensionContext) {
-  const open = vscode.commands.registerCommand('graphmlViewer.open', async (uri?: vscode.Uri) => {
-    const resource =
-      uri ??
-      vscode.window.activeTextEditor?.document.uri ??
-      (await promptForGraphML());
-    if (!resource) { return; }
+  const cmd = vscode.commands.registerCommand('graphmlViewer.open', async (uri?: vscode.Uri) => {
+    try {
+      const resource =
+        uri ??
+        vscode.window.activeTextEditor?.document.uri ??
+        (await pickGraphML());
+      if (!resource) return;
 
-    // Read file
-    const xmlBytes = await vscode.workspace.fs.readFile(resource);
-    const xml = new TextDecoder('utf-8').decode(xmlBytes);
+      const xml = new TextDecoder('utf-8')
+        .decode(await vscode.workspace.fs.readFile(resource));
 
-    // Create panel
-    const panel = vscode.window.createWebviewPanel(
-      'graphmlViewer',
-      `GraphML: ${resource.path.split('/').pop()}`,
-      { viewColumn: vscode.ViewColumn.Beside, preserveFocus: true },
-      {
-        enableScripts: true,
-        retainContextWhenHidden: true,
-      }
-    );
+      const panel = vscode.window.createWebviewPanel(
+        'graphmlViewer',
+        `GraphML: ${resource.path.split('/').pop()}`,
+        vscode.ViewColumn.Beside,
+        { enableScripts: true, retainContextWhenHidden: true }
+      );
 
-    // Send initial HTML with inline script (no external libs)
-    panel.webview.html = getHtml(panel.webview, context, xml, resource.toString());
+      panel.webview.html = getHtml(panel.webview, context, xml, resource);
 
-    // Live reload on save
-    const watcher = vscode.workspace.createFileSystemWatcher(resource.fsPath);
-    watcher.onDidChange(async () => {
-      const fresh = await vscode.workspace.fs.readFile(resource);
-      const freshXml = new TextDecoder('utf-8').decode(fresh);
-      panel.webview.postMessage({ type: 'reload', xml: freshXml });
-    });
-    panel.onDidDispose(() => watcher.dispose());
+      // Live reload on save
+      const watcher = vscode.workspace.createFileSystemWatcher(new vscode.RelativePattern(
+        vscode.Uri.file(resource.fsPath).with({ query: '', fragment: '' }).fsPath, '*'
+      ));
+      watcher.onDidChange(async () => {
+        const freshXml = new TextDecoder('utf-8').decode(await vscode.workspace.fs.readFile(resource));
+        panel.webview.postMessage({ type: 'reload', xml: freshXml });
+      });
+      panel.onDidDispose(() => watcher.dispose());
 
-    // Handle messages from webview (e.g., reveal in editor TODO)
-    panel.webview.onDidReceiveMessage((msg) => {
-      if (msg?.type === 'log') {
-        console.log('[webview]', msg.payload);
-      }
-    });
+      // Reveal in source (when user clicks a node)
+      panel.webview.onDidReceiveMessage(async (msg) => {
+        if (msg?.type === 'reveal' && typeof msg.id === 'string') {
+          await revealByNodeId(resource, msg.id);
+        }
+      });
+    } catch (e: any) {
+      vscode.window.showErrorMessage(`GraphML Viewer error: ${e.message || e}`);
+      console.error(e);
+    }
   });
 
-  context.subscriptions.push(open);
+  context.subscriptions.push(cmd);
 }
 
-async function promptForGraphML(): Promise<vscode.Uri | undefined> {
+async function pickGraphML(): Promise<vscode.Uri | undefined> {
   const picks = await vscode.window.showOpenDialog({
     openLabel: 'Open GraphML',
     canSelectMany: false,
@@ -55,95 +55,85 @@ async function promptForGraphML(): Promise<vscode.Uri | undefined> {
   return picks?.[0];
 }
 
-function getHtml(webview: vscode.Webview, _ctx: vscode.ExtensionContext, xml: string, src: string) {
-  // NOTE: no external scripts or styles to keep CSP simple.
-  // parse XML in-browser and count nodes/edges as a smoke test.
-  const esc = (s: string) =>
-    s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+// Naive reveal: find first line containing id="theId"
+async function revealByNodeId(resource: vscode.Uri, id: string) {
+  const doc = await vscode.workspace.openTextDocument(resource);
+  const editor = await vscode.window.showTextDocument(doc, { preview: false });
 
-  return `<!DOCTYPE html>
-<html lang="en">
+  const text = doc.getText();
+  const needle = `id="${id}"`;
+  const idx = text.indexOf(needle);
+  if (idx >= 0) {
+    const before = text.slice(0, idx);
+    const line = (before.match(/\n/g) || []).length;
+    const col = idx - (before.lastIndexOf('\n') + 1);
+    const pos = new vscode.Position(line, col);
+    editor.revealRange(new vscode.Range(pos, pos), vscode.TextEditorRevealType.InCenter);
+    editor.selection = new vscode.Selection(pos, pos);
+  } else {
+    vscode.window.showInformationMessage(`Could not find id="${id}" in source`);
+  }
+}
+
+function getHtml(webview: vscode.Webview, ctx: vscode.ExtensionContext, xml: string, src: vscode.Uri) {
+  const esc = (s: string) => s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+
+  const media = vscode.Uri.joinPath(ctx.extensionUri, 'media');
+  const cytoscapeUri = webview.asWebviewUri(vscode.Uri.joinPath(media, 'cytoscape.min.js'));
+  const viewerJsUri  = webview.asWebviewUri(vscode.Uri.joinPath(media, 'viewer.js'));
+
+  const b64 = Buffer.from(xml, 'utf8').toString('base64');
+
+  const csp = [
+    `default-src 'none'`,
+    `img-src ${webview.cspSource} blob:`,
+    `style-src ${webview.cspSource} 'unsafe-inline'`,
+    `script-src ${webview.cspSource}`,
+    `font-src ${webview.cspSource}`
+  ].join('; ');
+
+  return `<!doctype html>
+<html>
 <head>
-<meta charset="UTF-8" />
-<meta
-  http-equiv="Content-Security-Policy"
-  content="default-src 'none'; img-src ${webview.cspSource} blob:; style-src ${webview.cspSource} 'unsafe-inline'; script-src ${webview.cspSource};"
-/>
-<meta name="viewport" content="width=device-width, initial-scale=1" />
+<meta charset="utf-8"/>
+<meta http-equiv="Content-Security-Policy" content="${csp}">
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
 <title>GraphML Preview</title>
+<!-- initial XML payload (base64) -->
+<meta id="initial-xml" data-b64="${b64}">
 <style>
-  html, body { height: 100%; padding: 0; margin: 0; }
-  body { font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial; }
-  .toolbar { display:flex; gap:.5rem; align-items:center; padding:.5rem .75rem; border-bottom: 1px solid rgba(0,0,0,.1); }
-  .content { padding: .75rem; }
-  .badge { display:inline-block; padding:.15rem .5rem; border-radius:.5rem; background:#eee; margin-right:.5rem; }
-  .mono { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace; }
-  #preview { height: calc(100vh - 64px); border: 1px dashed rgba(0,0,0,.1); border-radius: .5rem; display:flex; align-items:center; justify-content:center; color: rgba(0,0,0,.6);}
+  :root { --chrome:#f6f6f7; --border:#e3e3e4; --text:#111; --muted:#666; }
+  html,body { height:100%; margin:0; font:13px/1.4 system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial; color:var(--text); }
+  .toolbar { display:flex; gap:.5rem; align-items:center; padding:.5rem .75rem; border-bottom:1px solid var(--border); background:var(--chrome); position:sticky; top:0; z-index:10; }
+  .toolbar .mono { font-family: ui-monospace, Menlo, Monaco, Consolas, monospace; color: var(--muted); }
+  .toolbar input, .toolbar select, .toolbar button { font:inherit; padding:4px 8px; }
+  .badges { margin-left:auto; color:var(--muted); }
+  #cy { height: calc(100vh - 48px); }
+  .hint { position:absolute; bottom:10px; left:10px; background:rgba(255,255,255,.9); border:1px solid var(--border); border-radius:8px; padding:4px 8px; }
 </style>
 </head>
 <body>
   <div class="toolbar">
-    <strong>Source:</strong> <span class="mono" title="${esc(src)}">${esc(src)}</span>
-    <span id="counts"></span>
-    <button id="fitBtn">Fit</button>
-    <button id="exportBtn">Export PNG</button>
+    <strong>Source:</strong> <span class="mono" title="${esc(src.toString())}">${esc(src.path.split('/').pop() || src.toString())}</span>
+    <input id="search" placeholder="Search node id…" />
+    <select id="layout">
+      <option value="cose">Force (cose)</option>
+      <option value="grid">Grid</option>
+      <option value="concentric">Concentric</option>
+      <option value="breadthfirst">Layered (breadthfirst)</option>
+    </select>
+    <button id="fit">Fit</button>
+    <button id="png">Export PNG</button>
+    <span class="badges" id="counts"></span>
   </div>
-  <div class="content">
-    <div id="preview">Graph renderer coming next — for now we parse & count.</div>
-    <details style="margin-top:.75rem;">
-      <summary>Raw XML (truncated)</summary>
-      <pre class="mono" id="raw"></pre>
-    </details>
-  </div>
+  <div id="cy"></div>
+  <div class="hint" id="hint" style="display:none;">Click a node to reveal in source</div>
 
-<script>
-(() => {
-  const vscode = acquireVsCodeApi();
-  let currentXml = \`${xml.replace(/`/g, '\\`')}\`;
-
-  const raw = document.getElementById('raw');
-  raw.textContent = (currentXml.length > 5000) ? currentXml.slice(0,5000) + '\\n…(truncated)…' : currentXml;
-
-  function parseAndCount(xml) {
-    try {
-      const doc = new DOMParser().parseFromString(xml, 'application/xml');
-      const parserErr = doc.querySelector('parsererror');
-      if (parserErr) { throw new Error(parserErr.textContent || 'XML parse error'); }
-      const nodes = doc.getElementsByTagName('node').length;
-      const edges = doc.getElementsByTagName('edge').length;
-      const directedDefault = doc.querySelector('graph')?.getAttribute('edgedefault') || 'undirected';
-      document.getElementById('counts').innerHTML =
-        '<span class="badge">nodes: ' + nodes + '</span>' +
-        '<span class="badge">edges: ' + edges + '</span>' +
-        '<span class="badge">default: ' + directedDefault + '</span>';
-      document.getElementById('preview').textContent =
-        'Parsed OK. Nodes: ' + nodes + ', Edges: ' + edges + ' (' + directedDefault + ')';
-    } catch (e) {
-      document.getElementById('preview').textContent = 'Failed to parse XML: ' + e.message;
-    }
-  }
-
-  parseAndCount(currentXml);
-
-  window.addEventListener('message', (event) => {
-    const { type, xml } = event.data || {};
-    if (type === 'reload') {
-      currentXml = xml;
-      raw.textContent = (currentXml.length > 5000) ? currentXml.slice(0,5000) + '\\n…(truncated)…' : currentXml;
-      parseAndCount(currentXml);
-    }
-  });
-
-  document.getElementById('fitBtn').onclick = () => {
-    vscode.postMessage({ type: 'log', payload: 'Fit clicked (placeholder)' });
-  };
-  document.getElementById('exportBtn').onclick = () => {
-    vscode.postMessage({ type: 'log', payload: 'Export clicked (placeholder)' });
-  };
-})();
-</script>
+  <script src="${cytoscapeUri}"></script>
+  <script src="${viewerJsUri}"></script>
 </body>
 </html>`;
 }
+
 
 export function deactivate() {}
