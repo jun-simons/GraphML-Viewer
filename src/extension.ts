@@ -7,7 +7,9 @@ export function activate(context: vscode.ExtensionContext) {
         uri ??
         vscode.window.activeTextEditor?.document.uri ??
         (await pickGraphML());
-      if (!resource) return;
+      if (!resource) {
+		return;
+	  }
 
       const xml = new TextDecoder('utf-8')
         .decode(await vscode.workspace.fs.readFile(resource));
