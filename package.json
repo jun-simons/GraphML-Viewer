@@ -1,8 +1,9 @@
 {
   "name": "graphml-viewer",
-  "displayName": "graphml-viewer",
+  "displayName": "GraphML Viewer",
   "description": "Preview and inspect GraphML files",
   "version": "0.0.1",
+  "icon": "assets/icon.png",
   "engines": {
     "vscode": "^1.96.0"
   },
@@ -58,7 +59,7 @@
   "devDependencies": {
     "@types/mocha": "^10.0.10",
     "@types/node": "20.x",
-    "@types/vscode": "^1.105.0",
+    "@types/vscode": "^1.96.x",
     "@typescript-eslint/eslint-plugin": "^8.31.1",
     "@typescript-eslint/parser": "^8.31.1",
     "@vscode/test-cli": "^0.0.10",
