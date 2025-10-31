@@ -24,7 +24,7 @@ GraphML Viewer lets you open a side-by-side, interactive graph view with layouts
 
 - Use the toolbar to switch layouts, fit the view, search by id, and export PNG  
 - Large graphs: start with **grid** or **breadth-first**, then try force layout  
-- The viewer falls back to node `id` when `label` is absent
+- Note: The viewer falls back to node `id` when `label` is absent
 
 ## Requirements
 
@@ -34,7 +34,5 @@ GraphML Viewer lets you open a side-by-side, interactive graph view with layouts
 
 ### 0.0.1
 - Initial release: preview panel, multiple layouts, search, click-to-source, directed/undirected arrows, PNG export, live reload, error banner
-
-—
 
 **Enjoy!**
