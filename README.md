@@ -8,8 +8,11 @@ GraphML Viewer lets you open a side-by-side, interactive graph view with layouts
 
 1) Install **GraphML Viewer** from the VS Code Marketplace  
 2) Press **Ctrl+Shift+P** (Windows/Linux) or **Cmd+Shift+P** (macOS) to open the Command Palette  
-3) Run **“GraphML: Open Preview”**  
-4) Open a `.graphml` file (or run the command from an open `.graphml` tab)
+3) Run **“GraphML: Open Preview”** — it's always available in the Command Palette:
+   - With a `.graphml` or `.xml` file active, it previews that file
+   - Otherwise, it prompts you to pick a file
+
+You can also right-click a `.graphml` file in the Explorer and choose **GraphML: Open Preview**.
 
 ## Features
 
@@ -31,6 +34,11 @@ GraphML Viewer lets you open a side-by-side, interactive graph view with layouts
 - Visual Studio Code **1.96.0** or newer
 
 ## Release notes
+
+### 0.0.2
+- **GraphML: Open Preview** is now always available in the Command Palette
+- Running it from an unrelated file prompts for a file instead of previewing the active one
+- `.graphml` / `.xml` extensions are matched case-insensitively
 
 ### 0.0.1
 - Initial release: preview panel, multiple layouts, search, click-to-source, directed/undirected arrows, PNG export, live reload, error banner
