@@ -3,10 +3,12 @@ import * as vscode from 'vscode';
 export function activate(context: vscode.ExtensionContext) {
   const cmd = vscode.commands.registerCommand('graphmlViewer.open', async (uri?: vscode.Uri) => {
     try {
+      const active = vscode.window.activeTextEditor?.document.uri;
       const resource =
         uri ??
-        vscode.window.activeTextEditor?.document.uri ??
-        (await pickGraphML());
+        (active && /\.(graphml|xml)$/i.test(active.path)
+          ? active
+          : await pickGraphML());
       if (!resource) {
 		return;
 	  }

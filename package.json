@@ -3,7 +3,7 @@
   "name": "graphml-viewer",
   "displayName": "GraphML Viewer",
   "description": "Preview and inspect GraphML files",
-  "version": "0.0.1",
+  "version": "0.0.2",
   "icon": "assets/icon.png",
   "engines": {
     "vscode": "^1.96.0"
@@ -29,9 +29,7 @@
     "menus": {
       "commandPalette": [
         {
-          "command": "graphmlViewer.open",
-          "when": "editorLangId == xml || resourceExtname == .graphml",
-          "group": "navigation"
+          "command": "graphmlViewer.open"
         }
       ],
       "editor/title": [
